@@ -2,15 +2,20 @@
 from __future__ import annotations
 
 import hashlib
-import fcntl
 import json
 import os
 import subprocess
 import sys
 import time
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 from portero_core import (
     HEAVY_EFFORTS,
@@ -30,7 +35,7 @@ def emit(value: dict[str, Any]) -> None:
 
 
 def state_path(event: dict[str, Any]) -> Path:
-    data_root = Path(os.environ.get("PLUGIN_DATA", "/tmp/codex-portero"))
+    data_root = Path(os.environ.get("PLUGIN_DATA", str(Path(tempfile.gettempdir()) / "codex-portero")))
     session = str(event.get("session_id") or "unknown")
     safe = hashlib.sha256(session.encode()).hexdigest()[:24]
     return data_root / "sessions" / f"{safe}.json"
@@ -44,11 +49,28 @@ def initial_state() -> dict[str, Any]:
 def session_lock(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.with_suffix(".lock").open("a+b") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        if os.name == "nt":
+            # Lock a fixed byte, including for a newly created empty file.
+            deadline = time.monotonic() + 10
+            while True:
+                lock.seek(0)
+                try:
+                    msvcrt.locking(lock.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("timed out acquiring Portero session lock")
+                    time.sleep(0.02)
+        else:
+            fcntl.flock(lock, fcntl.LOCK_EX)
         try:
             yield
         finally:
-            fcntl.flock(lock, fcntl.LOCK_UN)
+            if os.name == "nt":
+                lock.seek(0)
+                msvcrt.locking(lock.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def route_fingerprint(tool_input: dict[str, Any]) -> str:
@@ -60,7 +82,7 @@ def catalog_path() -> Path:
     fixture = os.environ.get("PORTERO_CATALOG_FIXTURE")
     if fixture:
         return Path(fixture)
-    return Path(os.environ.get("PLUGIN_DATA", "/tmp/codex-portero")) / "catalog.json"
+    return Path(os.environ.get("PLUGIN_DATA", str(Path(tempfile.gettempdir()) / "codex-portero"))) / "catalog.json"
 
 
 def refresh_catalog_if_stale() -> None:

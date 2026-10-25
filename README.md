@@ -2,7 +2,33 @@
 
 Codex Portero is a local plugin experiment that keeps the active Codex model as orchestrator and routes execution to catalog-compatible subagents. It is session-scoped and starts off on a new root session. Resume, compaction, and fork events do not reset the parent session's state.
 
-## Install in Codex
+## Windows adaptation (0.1.1)
+
+This local build adds Windows byte-range session locking and portable threaded
+JSON-line reads for the catalog fallback. Unix retains `fcntl.flock`.
+It requires Python 3.10+ available as `python3` and Codex CLI on PATH.
+Check `python3 --version` before installation. No additional Python packages are needed.
+
+The supplied local marketplace uses the adapted files, not the GitHub source.
+From the extracted `codex-portero-windows` marketplace folder, run:
+
+```powershell
+codex plugin marketplace add .
+codex plugin add codex-portero@portero-windows-local --json
+```
+
+Restart Codex desktop, review/trust its hooks using the desktop controls, and
+start a new chat. Run `$portero status`; it must report OFF before opting in.
+Do not bypass hook trust. Unit tests and CLI installation do not establish
+that desktop lifecycle hooks run or that a routed model is available.
+
+Run the portable test suite from the plugin folder:
+
+```powershell
+python3 -m unittest discover -s tests -p "test_*.py" -v
+```
+
+## Original upstream install (does not install this adaptation)
 
 Add the GitHub marketplace and install the plugin:
 
