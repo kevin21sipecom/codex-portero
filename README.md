@@ -2,6 +2,19 @@
 
 Codex Portero is a local plugin experiment that keeps the active Codex model as orchestrator and routes execution to catalog-compatible subagents. It is session-scoped and starts off on a new root session. Resume, compaction, and fork events do not reset the parent session's state.
 
+## Install in Codex
+
+Add the GitHub marketplace and install the plugin:
+
+```bash
+codex plugin marketplace add kevin21sipecom/codex-portero
+codex plugin add codex-portero@codex-portero
+```
+
+Restart the Codex desktop app, start a new conversation, and run `$portero status`. It should report **off**. Use `$portero on` to enable routing for that session; use `$portero off` to disable it. The marketplace is hosted in this repository and is separate from the public Plugin Directory.
+
+Portero bundles lifecycle hooks. Install and verify it in Codex desktop to use the full routing behavior; CLI discovery or installation alone does not prove that the plugin's hooks are running. See [Desktop acceptance check](#desktop-acceptance-check) below.
+
 ## Isolated validation
 
 Run `./scripts/test_isolated.sh`. The script creates a disposable `CODEX_HOME` under `.test-profile/`, installs the plugin from a local test marketplace through Codex CLI, and runs deterministic hook tests with a fake catalog. It does not alter the user's normal Codex configuration or the original Claude Mods harness. **This verifies packaging and hook logic, not runtime execution of plugin-bundled hooks.**

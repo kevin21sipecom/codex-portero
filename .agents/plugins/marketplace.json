@@ -1,0 +1,20 @@
+{
+  "name": "codex-portero",
+  "interface": {
+    "displayName": "Codex Portero"
+  },
+  "plugins": [
+    {
+      "name": "codex-portero",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/kevin21sipecom/codex-portero.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
