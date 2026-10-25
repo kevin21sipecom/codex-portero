@@ -1,0 +1,17 @@
+{
+  "name": "codex-portero",
+  "displayName": "Codex Portero",
+  "version": "0.1.0",
+  "description": "Session-scoped model routing for Codex subagents.",
+  "shortDescription": "Route subagents by task difficulty",
+  "license": "MIT",
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Codex Portero",
+    "shortDescription": "Route subagents by task difficulty",
+    "defaultPrompt": [
+      "$portero on"
+    ]
+  }
+}

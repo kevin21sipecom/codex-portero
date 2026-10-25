@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "model": "model-fast",
+      "supportedReasoningEfforts": [
+        {"reasoningEffort": "low"},
+        {"reasoningEffort": "medium"},
+        {"reasoningEffort": "high"}
+      ],
+      "defaultReasoningEffort": "medium",
+      "isDefault": false
+    },
+    {
+      "model": "model-balanced",
+      "supportedReasoningEfforts": [
+        {"reasoningEffort": "low"},
+        {"reasoningEffort": "medium"},
+        {"reasoningEffort": "high"},
+        {"reasoningEffort": "xhigh"}
+      ],
+      "defaultReasoningEffort": "medium",
+      "isDefault": true
+    },
+    {
+      "model": "model-deep",
+      "supportedReasoningEfforts": [
+        {"reasoningEffort": "high"},
+        {"reasoningEffort": "xhigh"},
+        {"reasoningEffort": "max"}
+      ],
+      "defaultReasoningEffort": "high",
+      "isDefault": false
+    }
+  ]
+}

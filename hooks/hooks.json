@@ -1,0 +1,53 @@
+{
+  "description": "Session-scoped Portero routing and subagent enforcement.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/portero_hook.py\"",
+            "timeout": 15,
+            "statusMessage": "Loading Portero session state"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/portero_hook.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "^(Agent|spawn_agent)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/portero_hook.py\"",
+            "timeout": 15,
+            "statusMessage": "Applying Portero route"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Agent|spawn_agent)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${PLUGIN_ROOT}/hooks/portero_hook.py\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

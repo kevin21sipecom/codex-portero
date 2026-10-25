@@ -1,0 +1,19 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "codex-portero",
+  "version": "0.1.0",
+  "description": "Session-scoped model routing for Codex subagents.",
+  "license": "MIT",
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json",
+      "interface": {
+        "displayName": "Codex Portero",
+        "shortDescription": "Route subagents by task difficulty",
+        "defaultPrompt": [
+          "$portero on"
+        ]
+      }
+    }
+  }
+}
