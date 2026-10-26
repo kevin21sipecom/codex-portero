@@ -2,6 +2,25 @@
 
 Codex Portero is a local plugin experiment that keeps the active Codex model as orchestrator and routes execution to catalog-compatible subagents. It is session-scoped and starts off on a new root session. Resume, compaction, and fork events do not reset the parent session's state.
 
+## Bounded routing (0.2.0)
+
+Portero now accepts a tier-only `PORTERO_ROUTE_JSON` marker and chooses a declared
+model family and reasoning effort from the live catalog. The policy is in
+`skills/portero/references/routing-policy.md`; older explicit model/effort
+markers still work. The main model remains the orchestrator and is not changed
+by the plugin. Supported `spawn_agent` calls use an isolated, self-contained
+handoff (`fork_turns: none`) so a model override does not inherit the entire
+conversation. When Codex supplies a turn ID, Portero allows two subagent spawns
+per turn; additional work requires a new turn. Heavy routes still need explicit
+confirmation. `$portero status` reports attempted routes and model failures,
+without storing prompt text or claiming to measure tokens or plan quota.
+
+Before claiming savings, compare equivalent tasks with Portero on and off:
+record completion quality, retry counts, and the change in the same Codex
+five-hour usage window. The hook reports a requested model/effort, not proof
+of execution. Desktop acceptance must inspect the actual routed subagent and
+confirm the hook is trusted; CLI and unit tests alone cannot prove either.
+
 ## Windows adaptation (0.1.1)
 
 This local build adds Windows byte-range session locking and portable threaded
@@ -64,3 +83,4 @@ This final runtime check needs a person with Codex desktop and a signed-in accou
 Do not paste credentials or private logs into the acceptance report. If the hook-trust control or a subagent route is unavailable, report that limit rather than treating skill discovery as a pass.
 
 At session start, Portero reads Codex's current `models_cache.json` when available and otherwise queries `model/list`; its own cache expires weekly. Catalog membership is not treated as proof of entitlement, so a rejected model is marked failed and the next declared compatible fallback is attempted. Portero never silently chooses an undeclared catalog model. If hook events lack `turn_id`, heavy-route confirmation fails closed; if they lack `tool_use_id`, Portero cannot attribute a subsequent model failure and does not mark one.
+
