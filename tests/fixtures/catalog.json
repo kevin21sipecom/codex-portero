@@ -22,6 +22,18 @@
       "isDefault": true
     },
     {
+      "model": "gpt-6-luna",
+      "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "medium"}]
+    },
+    {
+      "model": "gpt-6.1-sol",
+      "supportedReasoningEfforts": [{"reasoningEffort": "low"}, {"reasoningEffort": "medium"}, {"reasoningEffort": "high"}]
+    },
+    {
+      "model": "gpt-6-astra",
+      "supportedReasoningEfforts": [{"reasoningEffort": "high"}, {"reasoningEffort": "xhigh"}, {"reasoningEffort": "max"}]
+    },
+    {
       "model": "model-deep",
       "supportedReasoningEfforts": [
         {"reasoningEffort": "high"},
@@ -33,3 +45,4 @@
     }
   ]
 }
+

@@ -46,6 +46,10 @@ class PorteroCoreTest(unittest.TestCase):
         route = Route("rapido", "missing", "low", ())
         self.assertIsNone(choose_compatible(route, self.models, set()))
 
+    def test_unknown_effort_support_is_not_assumed_compatible(self) -> None:
+        route = Route("rapido", "opaque-model", "low", ())
+        self.assertIsNone(choose_compatible(route, parse_catalog({"data": [{"model": "opaque-model"}]}), set()))
+
     def test_commands_and_confirmation(self) -> None:
         self.assertEqual(normalize_command("$portero on"), "on")
         self.assertEqual(normalize_command("$portero off"), "off")
@@ -72,3 +76,4 @@ class PorteroCoreTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
