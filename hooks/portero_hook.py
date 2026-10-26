@@ -42,7 +42,7 @@ def state_path(event: dict[str, Any]) -> Path:
 
 
 def initial_state() -> dict[str, Any]:
-    return {"enabled": False, "pending_heavy": None, "heavy_approval": None, "failed_models": [], "inflight": {}}
+    return {"enabled": False, "pending_heavy": None, "heavy_approval": None, "failed_models": [], "inflight": {}, "turn_budget": None, "stats": {"routes": 0, "model_failures": 0}}
 
 
 @contextmanager
@@ -99,12 +99,12 @@ def hook_output(event_name: str, **values: Any) -> dict[str, Any]:
     return {"hookSpecificOutput": {"hookEventName": event_name, **values}}
 
 
-def routing_context(models_summary: str) -> str:
+def routing_context() -> str:
     return (
         "Portero is ON for this session. The main model is the orchestrator. "
-        "For every user task, choose the lowest sufficient Portero tier, announce the decomposition, model, effort, and reason before spawning, then delegate at least one subagent. "
-        "Use a PORTERO_ROUTE_JSON marker in each spawn message. Ask the user before xhigh or max. "
-        f"Current catalog: {models_summary}."
+        "Choose the lowest sufficient tier and delegate one bounded subagent by default. "
+        "Use a self-contained prompt and PORTERO_ROUTE_JSON tier marker; Portero selects model and effort. "
+        "Ask the user before xhigh or max. Do not duplicate a completed investigation."
     )
 
 
@@ -126,7 +126,7 @@ def handle_locked(event: dict[str, Any], path: Path) -> None:
             state = initial_state()
             save_json(path, state)
         status = "ON" if state.get("enabled") else "OFF"
-        context = routing_context(catalog_summary(parse_catalog(load_json(catalog_path(), {})))) if state.get("enabled") else "Use $portero on to enable it."
+        context = routing_context() if state.get("enabled") else "Use $portero on to enable it."
         emit(hook_output(event_name, additionalContext=f"Portero is {status} for this session. {context}"))
         return
 
@@ -138,7 +138,7 @@ def handle_locked(event: dict[str, Any], path: Path) -> None:
         if command == "on":
             state = initial_state() | {"enabled": True}
             save_json(path, state)
-            emit(hook_output(event_name, additionalContext=f"Portero is now ON for this session. Confirm that to the user. {routing_context(catalog_summary(models))}"))
+            emit(hook_output(event_name, additionalContext=f"Portero is now ON for this session. Confirm that to the user. {routing_context()}"))
             return
         if command == "off":
             state = initial_state()
@@ -147,7 +147,8 @@ def handle_locked(event: dict[str, Any], path: Path) -> None:
             return
         if command == "status":
             status = "ON" if state.get("enabled") else "OFF"
-            emit(hook_output(event_name, additionalContext=f"Report Portero status as {status}. Catalog: {catalog_summary(models)}."))
+            stats = state.get("stats", {})
+            emit(hook_output(event_name, additionalContext=f"Report Portero status as {status}. {stats.get('routes', 0)} route(s) requested, {stats.get('model_failures', 0)} model failure(s). These are not token or quota measurements. Catalog: {catalog_summary(models)}."))
             return
         if state.get("pending_heavy") and is_confirmation(prompt) and isinstance(event.get("turn_id"), str):
             state["heavy_approval"] = {"fingerprint": state["pending_heavy"]["fingerprint"], "turn_id": event["turn_id"]}
@@ -160,7 +161,7 @@ def handle_locked(event: dict[str, Any], path: Path) -> None:
             state["heavy_approval"] = None
             save_json(path, state)
         if state.get("enabled"):
-            emit(hook_output(event_name, additionalContext=routing_context(catalog_summary(models))))
+            emit(hook_output(event_name, additionalContext=routing_context()))
         return
 
     if event_name == "PreToolUse" and state.get("enabled"):
@@ -172,37 +173,50 @@ def handle_locked(event: dict[str, Any], path: Path) -> None:
         if route is None:
             emit(hook_output(event_name, permissionDecision="deny", permissionDecisionReason="Portero requires a valid PORTERO_ROUTE_JSON line after announcing the route to the user."))
             return
-        fingerprint = route_fingerprint(tool_input)
-        approval = state.get("heavy_approval")
-        approved = isinstance(approval, dict) and approval.get("fingerprint") == fingerprint and approval.get("turn_id") == event.get("turn_id") and isinstance(event.get("turn_id"), str)
-        if route.effort in HEAVY_EFFORTS and not approved:
-            state["heavy_approval"] = None
-            state["pending_heavy"] = {"fingerprint": fingerprint, "turn_id": event.get("turn_id")}
-            save_json(path, state)
-            emit(hook_output(event_name, permissionDecision="deny", permissionDecisionReason=f"Ask the user to confirm {route.model}/{route.effort} before spawning. Do not infer consent."))
-            return
-        if route.effort not in HEAVY_EFFORTS and approval:
-            state["heavy_approval"] = None
-        if route.effort not in HEAVY_EFFORTS:
-            state["pending_heavy"] = None
         selected = choose_compatible(route, models, set(state.get("failed_models", [])))
         if selected is None:
             state["heavy_approval"] = None
             save_json(path, state)
-            emit(hook_output(event_name, permissionDecision="deny", permissionDecisionReason="No compatible catalog route remains. Continue with the main orchestrator and tell the user."))
+            emit(hook_output(event_name, permissionDecision="deny", permissionDecisionReason="No compatible declared route remains. Continue with the main orchestrator and tell the user."))
             return
         model, effort = selected
+        fingerprint = route_fingerprint(tool_input)
+        approval = state.get("heavy_approval")
+        approved = isinstance(approval, dict) and approval.get("fingerprint") == fingerprint and approval.get("turn_id") == event.get("turn_id") and isinstance(event.get("turn_id"), str)
+        if effort in HEAVY_EFFORTS and not approved:
+            state["heavy_approval"] = None
+            state["pending_heavy"] = {"fingerprint": fingerprint, "turn_id": event.get("turn_id")}
+            save_json(path, state)
+            emit(hook_output(event_name, permissionDecision="deny", permissionDecisionReason=f"Ask the user to confirm {model}/{effort} before spawning. Do not infer consent."))
+            return
+        if effort not in HEAVY_EFFORTS and approval:
+            state["heavy_approval"] = None
+        if effort not in HEAVY_EFFORTS:
+            state["pending_heavy"] = None
+        turn_id = event.get("turn_id")
+        if isinstance(turn_id, str) and turn_id:
+            budget = state.get("turn_budget")
+            if not isinstance(budget, dict) or budget.get("turn_id") != turn_id:
+                budget = {"turn_id": turn_id, "count": 0}
+            if budget["count"] >= 2:
+                emit(hook_output(event_name, permissionDecision="deny", permissionDecisionReason="Portero's two-spawn turn budget is exhausted. Summarize current results or continue in a new turn."))
+                return
+            budget["count"] += 1
+            state["turn_budget"] = budget
         updated["model"] = model
         if "model_reasoning_effort" in updated and "reasoning_effort" not in updated:
             updated["model_reasoning_effort"] = effort
         else:
             updated["reasoning_effort"] = effort
+        if event.get("tool_name") == "spawn_agent" or "fork_turns" in updated:
+            updated["fork_turns"] = "none"
         tool_use_id = event.get("tool_use_id")
         if isinstance(tool_use_id, str) and tool_use_id:
             state.setdefault("inflight", {})[tool_use_id] = {"model": model, "turn_id": event.get("turn_id")}
         state["heavy_approval"] = None
+        state.setdefault("stats", {"routes": 0, "model_failures": 0})["routes"] += 1
         save_json(path, state)
-        emit(hook_output(event_name, permissionDecision="allow", updatedInput=updated, systemMessage=f"Portero route: {route.tier} -> {model}/{effort}."))
+        emit(hook_output(event_name, permissionDecision="allow", updatedInput=updated, systemMessage=f"Portero requested route: {route.tier} -> {model}/{effort}. Actual execution is not yet verified."))
         return
 
     if event_name == "PostToolUse" and state.get("enabled"):
@@ -220,6 +234,7 @@ def handle_locked(event: dict[str, Any], path: Path) -> None:
         if any(word in text for word in failure_words):
             failed = list(dict.fromkeys([*state.get("failed_models", []), route.get("model")]))
             state["failed_models"] = [item for item in failed if isinstance(item, str)]
+            state.setdefault("stats", {"routes": 0, "model_failures": 0})["model_failures"] += 1
             save_json(path, state)
             emit({"decision": "block", "reason": "The selected model was unavailable. Retry the same bounded task with the next catalog-compatible fallback.", **hook_output(event_name, additionalContext="Portero recorded the failed model; retry the spawn so the next compatible fallback is selected.")})
         return
@@ -239,3 +254,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
