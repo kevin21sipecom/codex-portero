@@ -35,9 +35,37 @@ class ModelEntry:
 @dataclass(frozen=True)
 class Route:
     tier: str
-    model: str
-    effort: str
-    fallbacks: tuple[str, ...]
+    model: str | None = None
+    effort: str | None = None
+    fallbacks: tuple[str, ...] = ()
+
+
+# Ordered, declared policy. Never infer a model's cost from catalog order.
+TIER_POLICY: dict[str, tuple[str, tuple[str, ...]]] = {
+    "rapido": ("low", ("luna", "sol", "astra")),
+    "ligero": ("low", ("luna", "sol", "astra")),
+    "basico": ("medium", ("luna", "sol", "astra")),
+    "normal": ("low", ("sol", "astra")),
+    "profundo": ("medium", ("sol", "astra")),
+    "avanzado": ("high", ("sol", "astra")),
+    "complejo": ("high", ("astra", "sol")),
+    "critico": ("xhigh", ("astra",)),
+    "maximo": ("max", ("astra",)),
+}
+
+
+def select_for_tier(tier: str, models: list[ModelEntry], failed: set[str]) -> tuple[str, str] | None:
+    policy = TIER_POLICY.get(tier)
+    if policy is None:
+        return None
+    effort, families = policy
+    for family in families:
+        for entry in models:
+            if entry.model in failed or effort not in entry.efforts:
+                continue
+            if re.search(rf"-{re.escape(family)}(?:$|-)", entry.model):
+                return entry.model, effort
+    return None
 
 
 def parse_catalog(payload: dict[str, Any]) -> list[ModelEntry]:
@@ -85,10 +113,12 @@ def extract_route(tool_input: dict[str, Any]) -> tuple[Route | None, dict[str, A
     try:
         data = json.loads(lines[marker_index][len(ROUTE_PREFIX):].strip())
         tier = data["tier"]
-        model = data["model"]
-        effort = data["effort"]
+        model = data.get("model")
+        effort = data.get("effort")
         fallbacks = data.get("fallbacks", [])
-        if tier not in TIERS or effort not in EFFORT_ORDER or not isinstance(model, str):
+        if tier not in TIERS or (model is None) != (effort is None):
+            return None, clean
+        if model is not None and (not isinstance(model, str) or not model or effort not in EFFORT_ORDER):
             return None, clean
         if not isinstance(fallbacks, list) or not all(isinstance(item, str) for item in fallbacks):
             return None, clean
@@ -99,13 +129,15 @@ def extract_route(tool_input: dict[str, Any]) -> tuple[Route | None, dict[str, A
 
 
 def choose_compatible(route: Route, models: list[ModelEntry], failed: set[str]) -> tuple[str, str] | None:
+    if route.model is None or route.effort is None:
+        return select_for_tier(route.tier, models, failed)
     by_id = {entry.model: entry for entry in models}
     candidates = (route.model,) + route.fallbacks
     for candidate in candidates:
         entry = by_id.get(candidate)
         if entry is None or candidate in failed:
             continue
-        if not entry.efforts or route.effort in entry.efforts:
+        if route.effort in entry.efforts:
             return candidate, route.effort
     return None
 
@@ -137,3 +169,4 @@ def save_json(path: Path, value: Any) -> None:
     finally:
         if os.path.exists(name):
             os.unlink(name)
+
