@@ -4,7 +4,7 @@ description: "Trigger: $portero, automatic subagent routing. Enable, disable, or
 license: MIT
 metadata:
   author: "Kevin Fernandez"
-  version: "0.2.0"
+  version: "0.2.1"
 ---
 
 ## Activation Contract
@@ -14,7 +14,8 @@ Use this skill for `$portero on`, `$portero off`, `$portero status`, and every t
 ## Hard Rules
 
 - Keep the current main model as a thin orchestrator; delegate execution to one bounded subagent by default.
-- Before spawning, tell the user the task split, selected tier, and short reason. Do not claim a model or effort until the hook requests it.
+- Keep routing updates terse. Before the hook selects a route, tell the user only the bounded task being delegated; do not explain the rationale, list tiers or fallback models, or claim a model/effort prematurely.
+- After the hook selects a route, surface exactly these three fields in one short line: `Task: <task> | Model: <requested model> | Reasoning: <requested effort>`. Do not add rationale, fallback lists, or other routing details. Label the model/effort as requested; do not imply runtime execution is confirmed.
 - Select the lowest sufficient tier from [the routing policy](references/routing-policy.md).
 - Use the tier-only marker so the hook selects a catalog-compatible model and effort from its declared family policy. Legacy explicit routes remain supported.
 - Pass a self-contained objective, relevant paths, constraints, and acceptance checks. Do not copy the full conversation or repeat a completed investigation.

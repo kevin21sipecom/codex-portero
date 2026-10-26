@@ -1,7 +1,7 @@
 {
   "name": "codex-portero",
   "displayName": "Codex Portero",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Session-scoped model routing for Codex subagents.",
   "shortDescription": "Route subagents by task difficulty",
   "license": "MIT",

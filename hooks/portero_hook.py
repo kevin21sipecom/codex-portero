@@ -103,6 +103,8 @@ def routing_context() -> str:
     return (
         "Portero is ON for this session. The main model is the orchestrator. "
         "Choose the lowest sufficient tier and delegate one bounded subagent by default. "
+        "Keep user-facing routing updates minimal: before route selection, state only the bounded task; after selection, use exactly one line with Task, requested Model, and requested Reasoning effort. "
+        "Do not add rationale, tier descriptions, fallback lists, or other routing details, and do not claim execution is confirmed. "
         "Use a self-contained prompt and PORTERO_ROUTE_JSON tier marker; Portero selects model and effort. "
         "Ask the user before xhigh or max. Do not duplicate a completed investigation."
     )
