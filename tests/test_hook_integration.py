@@ -42,14 +42,28 @@ class HookIntegrationTest(unittest.TestCase):
         _, output, _ = run_hook(self.event("PreToolUse", tool_input={"message": "ordinary"}), self.data)
         self.assertEqual(output, {})
 
+    def test_enabled_context_instructs_direct_answer_for_trivial_requests(self) -> None:
+        self.enable()
+        _, prompt_output, _ = run_hook(self.event("UserPromptSubmit", prompt="Hello"), self.data)
+        context = prompt_output["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("Answer brief self-contained no-tool requests", context)
+        self.assertIn("directly with no subagent or routing line", context)
+        self.assertIn("The selected main model does not change", context)
+        self.assertIn("For substantial bounded work", context)
+
+        _, session_output, _ = run_hook(self.event("SessionStart", source="resume"), self.data)
+        self.assertIn("directly with no subagent", session_output["hookSpecificOutput"]["additionalContext"])
+        _, status_output, _ = run_hook(self.event("UserPromptSubmit", prompt="$portero status"), self.data)
+        self.assertIn("0 route(s) requested", status_output["hookSpecificOutput"]["additionalContext"])
+
     def test_low_route_is_rewritten(self) -> None:
         self.enable()
-        marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido","model":"model-fast","effort":"low","fallbacks":["model-balanced"]}\nSay hello.'
+        marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido","model":"model-fast","effort":"low","fallbacks":["model-balanced"]}\nNormalize report headings.'
         _, output, _ = run_hook(self.event("PreToolUse", tool_input={"message": marker}), self.data)
         hook = output["hookSpecificOutput"]
         self.assertEqual(hook["updatedInput"]["model"], "model-fast")
         self.assertEqual(hook["updatedInput"]["reasoning_effort"], "low")
-        self.assertEqual(hook["updatedInput"]["message"], "Say hello.")
+        self.assertEqual(hook["updatedInput"]["message"], "Normalize report headings.")
 
     def test_fork_resume_and_compact_preserve_parent_state(self) -> None:
         self.enable()

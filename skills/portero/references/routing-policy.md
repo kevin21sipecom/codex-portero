@@ -1,5 +1,7 @@
 # Portero routing policy
 
+Apply this table only when a subagent is useful. Answer brief self-contained no-tool requests directly in the current main model; a `rapido` classification does not require a spawn. A longer mechanical transformation can be delegated to a bounded Luna route when appropriate, but that does not guarantee lower total tokens or plan usage. To reduce main-model usage on simple requests, select a lighter main model before submitting the prompt; Portero cannot switch it.
+
 Choose by actual task difficulty and risk, not prompt length. Long input with a mechanical request can still be `rapido` or `normal`. Pick the lowest tier likely to finish correctly; do not raise the tier merely because of uncertainty. If an attempt fails a concrete acceptance check, escalate once within the turn budget.
 
 | Tier | Intended work | Requested family order | Effort |
