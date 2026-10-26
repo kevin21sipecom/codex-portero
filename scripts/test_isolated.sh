@@ -20,7 +20,15 @@ codex plugin marketplace add "$MARKETPLACE"
 codex plugin add codex-portero@portero-test --json
 codex plugin list --json > "$PROFILE/plugin-list.json"
 
-CACHED_PLUGIN="$CODEX_HOME/plugins/cache/portero-test/codex-portero/0.1.0"
+PLUGIN_VERSION="$(python3 - "$ROOT/plugin.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    print(json.load(stream)["version"])
+PY
+)"
+CACHED_PLUGIN="$CODEX_HOME/plugins/cache/portero-test/codex-portero/$PLUGIN_VERSION"
 test -f "$CACHED_PLUGIN/.codex-plugin/plugin.json"
 python3 - "$CACHED_PLUGIN/plugin.json" "$CACHED_PLUGIN/.codex-plugin/plugin.json" "$MARKETPLACE/.agents/plugins/marketplace.json" <<'PY'
 import json

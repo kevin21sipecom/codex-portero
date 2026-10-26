@@ -1,11 +1,17 @@
 # Codex Portero
 
-Codex Portero is a local plugin experiment that keeps the active Codex model as orchestrator and routes execution to catalog-compatible subagents. It is session-scoped and starts off on a new root session. Resume, compaction, and fork events do not reset the parent session's state.
+Codex Portero is a local plugin experiment that keeps the active Codex model as orchestrator and routes suitable work to catalog-compatible subagents. It is session-scoped and starts off on a new root session. Resume, compaction, and fork events do not reset the parent session's state.
+
+## Conditional delegation (0.2.2)
+
+With Portero enabled, brief self-contained requests that need no tools, such as a greeting or short translation, should be answered directly without a subagent or routing announcement. Substantial bounded work may still be delegated using the lowest sufficient tier; a longer mechanical transformation can be a reasonable Luna task. These are routing instructions, not a deterministic prompt classifier or a guarantee of token or plan-quota savings. The selected main model still receives the prompt and is not changed by Portero.
+
+To avoid using a heavier main model for simple requests, select an available lighter model before sending the prompt: use the model picker in the Codex desktop app, `/model` in an interactive CLI session, or start a new CLI session with `codex -m gpt-6-luna`. Switch back to Sol when the main task needs stronger orchestration. Model availability depends on the client and account.
 
 ## Bounded routing (0.2.0)
 
 Portero now accepts a tier-only `PORTERO_ROUTE_JSON` marker and chooses a declared
-model family and reasoning effort from the live catalog. The policy is in
+model family and reasoning effort from the live catalog. The policy for delegated work is in
 `skills/portero/references/routing-policy.md`; older explicit model/effort
 markers still work. The main model remains the orchestrator and is not changed
 by the plugin. Supported `spawn_agent` calls use an isolated, self-contained
@@ -83,4 +89,3 @@ This final runtime check needs a person with Codex desktop and a signed-in accou
 Do not paste credentials or private logs into the acceptance report. If the hook-trust control or a subagent route is unavailable, report that limit rather than treating skill discovery as a pass.
 
 At session start, Portero reads Codex's current `models_cache.json` when available and otherwise queries `model/list`; its own cache expires weekly. Catalog membership is not treated as proof of entitlement, so a rejected model is marked failed and the next declared compatible fallback is attempted. Portero never silently chooses an undeclared catalog model. If hook events lack `turn_id`, heavy-route confirmation fails closed; if they lack `tool_use_id`, Portero cannot attribute a subsequent model failure and does not mark one.
-

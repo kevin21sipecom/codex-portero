@@ -101,9 +101,10 @@ def hook_output(event_name: str, **values: Any) -> dict[str, Any]:
 
 def routing_context() -> str:
     return (
-        "Portero is ON for this session. The main model is the orchestrator. "
-        "Choose the lowest sufficient tier and delegate one bounded subagent by default. "
-        "Keep user-facing routing updates minimal: before route selection, state only the bounded task; after selection, use exactly one line with Task, requested Model, and requested Reasoning effort. "
+        "Portero is ON for this session. Answer brief self-contained no-tool requests, such as greetings or short translations, directly with no subagent or routing line. "
+        "For substantial bounded work, choose the lowest sufficient tier and delegate one subagent when useful. "
+        "The selected main model does not change; a subagent does not erase its usage. "
+        "When delegating, keep routing updates minimal: before route selection, state only the bounded task; after selection, use exactly one line with Task, requested Model, and requested Reasoning effort. "
         "Do not add rationale, tier descriptions, fallback lists, or other routing details, and do not claim execution is confirmed. "
         "Use a self-contained prompt and PORTERO_ROUTE_JSON tier marker; Portero selects model and effort. "
         "Ask the user before xhigh or max. Do not duplicate a completed investigation."
@@ -256,4 +257,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
