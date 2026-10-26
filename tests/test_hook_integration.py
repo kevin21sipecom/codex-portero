@@ -118,11 +118,54 @@ class HookIntegrationTest(unittest.TestCase):
         _, output, _ = run_hook(self.event("PreToolUse", turn_id="next", tool_input={"message": marker}), self.data)
         self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "allow")
 
+    def test_spawn_override_uses_isolated_bounded_context(self) -> None:
+        self.enable()
+        marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido","model":"model-fast","effort":"low","fallbacks":[]}\nDo one bounded task.'
+        _, output, _ = run_hook(self.event("PreToolUse", tool_name="spawn_agent", turn_id="one", tool_input={"message": marker, "fork_turns": "all"}), self.data)
+        self.assertEqual(output["hookSpecificOutput"]["updatedInput"]["fork_turns"], "none")
+
+    def test_tier_only_route_selects_model_and_effort_in_hook(self) -> None:
+        self.enable()
+        marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido"}\nReview this one function.'
+        _, output, _ = run_hook(self.event("PreToolUse", tool_name="spawn_agent", turn_id="one", tool_input={"message": marker}), self.data)
+        updated = output["hookSpecificOutput"]["updatedInput"]
+        self.assertEqual((updated["model"], updated["reasoning_effort"]), ("gpt-6-luna", "low"))
+        self.assertEqual(updated["fork_turns"], "none")
+
+    def test_tier_only_heavy_route_still_needs_user_approval(self) -> None:
+        self.enable()
+        marker = 'PORTERO_ROUTE_JSON: {"tier":"critico"}\nAudit this risk.'
+        _, denied, _ = run_hook(self.event("PreToolUse", turn_id="one", tool_input={"message": marker}), self.data)
+        self.assertEqual(denied["hookSpecificOutput"]["permissionDecision"], "deny")
+        run_hook(self.event("UserPromptSubmit", turn_id="two", prompt="sí"), self.data)
+        _, allowed, _ = run_hook(self.event("PreToolUse", turn_id="two", tool_input={"message": marker}), self.data)
+        updated = allowed["hookSpecificOutput"]["updatedInput"]
+        self.assertEqual((updated["model"], updated["reasoning_effort"]), ("gpt-6-astra", "xhigh"))
+
+    def test_third_spawn_in_same_turn_is_denied(self) -> None:
+        self.enable()
+        marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido","model":"model-fast","effort":"low","fallbacks":[]}\nDo one bounded task.'
+        event = self.event("PreToolUse", turn_id="one", tool_input={"message": marker})
+        self.assertEqual(run_hook(event, self.data)[1]["hookSpecificOutput"]["permissionDecision"], "allow")
+        self.assertEqual(run_hook(event, self.data)[1]["hookSpecificOutput"]["permissionDecision"], "allow")
+        denied = run_hook(event, self.data)[1]["hookSpecificOutput"]
+        self.assertEqual(denied["permissionDecision"], "deny")
+        self.assertIn("budget", denied["permissionDecisionReason"].lower())
+
+    def test_status_reports_attempts_without_prompts(self) -> None:
+        self.enable()
+        marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido","model":"model-fast","effort":"low","fallbacks":[]}\nPrivate task details.'
+        run_hook(self.event("PreToolUse", turn_id="one", tool_input={"message": marker}), self.data)
+        _, output, _ = run_hook(self.event("UserPromptSubmit", prompt="$portero status"), self.data)
+        context = output["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("1 route", context)
+        self.assertNotIn("Private task details", context)
+
     def test_parallel_writes_keep_all_inflight_routes(self) -> None:
         self.enable()
         marker = 'PORTERO_ROUTE_JSON: {"tier":"rapido","model":"model-fast","effort":"low","fallbacks":[]}\nTask.'
         def spawn(index: int):
-            return run_hook(self.event("PreToolUse", turn_id="turn", tool_use_id=f"call-{index}", tool_input={"message": marker}), self.data)
+            return run_hook(self.event("PreToolUse", turn_id=f"turn-{index}", tool_use_id=f"call-{index}", tool_input={"message": marker}), self.data)
         with ThreadPoolExecutor(max_workers=12) as pool:
             results = list(pool.map(spawn, range(24)))
         self.assertTrue(all(code == 0 and output["hookSpecificOutput"]["permissionDecision"] == "allow" for code, output, _ in results))
@@ -133,3 +176,4 @@ class HookIntegrationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
